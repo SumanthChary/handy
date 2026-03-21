@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { motion, AnimatePresence } from 'motion/react';
-import { Camera, Hand, Info, Loader2, Maximize2, Minimize2, Settings } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Camera, Hand, Info, Loader2 } from 'lucide-react';
 
 // --- Types ---
 declare global {
@@ -85,13 +85,13 @@ const App: React.FC = () => {
 
           // Update Joints with Smoothing (Lerp)
           landmarks.forEach((lm: any, i: number) => {
+            if (!jointsRef.current[i]) return;
             const joint = jointsRef.current[i];
             const targetX = (lm.x - 0.5) * 160;
             const targetY = -(lm.y - 0.5) * 160;
             const targetZ = -lm.z * 160;
 
             const targetPos = new THREE.Vector3(targetX, targetY, targetZ);
-            // Smoothly interpolate to new position (0.3 = 30% of the way each frame)
             smoothedLandmarks.current[i].lerp(targetPos, 0.3);
             
             joint.position.copy(smoothedLandmarks.current[i]);
@@ -100,6 +100,7 @@ const App: React.FC = () => {
 
           // Update Bones
           HAND_CONNECTIONS.forEach((conn, i) => {
+            if (!bonesRef.current[i]) return;
             const bone = bonesRef.current[i];
             const start = jointsRef.current[conn[0]].position;
             const end = jointsRef.current[conn[1]].position;
@@ -110,7 +111,6 @@ const App: React.FC = () => {
               return;
             }
 
-            // Capsule geometry height is the distance between centers of spheres
             bone.scale.set(1, distance, 1);
             bone.position.copy(start).lerp(end, 0.5);
             
@@ -122,8 +122,8 @@ const App: React.FC = () => {
           });
         } else {
           if (handDetected) setHandDetected(false);
-          jointsRef.current.forEach(j => j.visible = false);
-          bonesRef.current.forEach(b => b.visible = false);
+          jointsRef.current.forEach(j => { if (j) j.visible = false; });
+          bonesRef.current.forEach(b => { if (b) b.visible = false; });
         }
       });
 
@@ -190,7 +190,6 @@ const App: React.FC = () => {
     scene.add(topLight);
 
     // --- Hand Model Creation ---
-    // Using a single Physical material for a more organic, continuous look
     const skinMaterial = new THREE.MeshPhysicalMaterial({ 
       color: SKIN_COLOR, 
       roughness: 0.4, 
@@ -206,6 +205,10 @@ const App: React.FC = () => {
     const jointGeometry = new THREE.SphereGeometry(2.2, 24, 24);
     const boneGeometry = new THREE.CapsuleGeometry(1.8, 1, 12, 12);
 
+    // Clear refs before populating
+    jointsRef.current = [];
+    bonesRef.current = [];
+
     // Create 21 joints
     for (let i = 0; i < 21; i++) {
       const joint = new THREE.Mesh(jointGeometry, skinMaterial);
@@ -216,7 +219,7 @@ const App: React.FC = () => {
       jointsRef.current.push(joint);
     }
 
-    // Create bones using CapsuleGeometry for rounded ends
+    // Create bones
     HAND_CONNECTIONS.forEach(() => {
       const bone = new THREE.Mesh(boneGeometry, skinMaterial);
       bone.visible = false;
@@ -227,8 +230,9 @@ const App: React.FC = () => {
     });
 
     // --- Animation Loop ---
+    let animationId: number;
     const animate = () => {
-      requestAnimationFrame(animate);
+      animationId = requestAnimationFrame(animate);
       renderer.render(scene, camera);
     };
     animate();
@@ -244,10 +248,13 @@ const App: React.FC = () => {
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(animationId);
       renderer.dispose();
-      if (containerRef.current) {
+      if (containerRef.current && renderer.domElement) {
         containerRef.current.removeChild(renderer.domElement);
       }
+      jointsRef.current = [];
+      bonesRef.current = [];
     };
   }, []);
 
