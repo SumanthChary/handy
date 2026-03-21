@@ -1,0 +1,7 @@
+{
+  "name": "Hand Immitation",
+  "description": "A real-time, gesture-controlled 3D particle universe using Three.js and MediaPipe.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
