@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { Camera, Hand, Info, Loader2 } from 'lucide-react';
 
 // --- Types ---
@@ -260,6 +260,10 @@ const App: React.FC = () => {
 
   return (
     <div className="relative w-full h-screen bg-[#0a0a0a] font-sans text-white overflow-hidden">
+      {/* DEBUG MESSAGE */}
+      <div className="absolute top-2 left-2 bg-red-600 text-white text-[10px] px-2 py-1 z-[100] font-mono">
+        SYSTEM_READY: {isStarted ? 'RUNNING' : 'IDLE'}
+      </div>
       {/* Background Texture */}
       <div className="absolute inset-0 opacity-20 pointer-events-none" 
            style={{ backgroundImage: 'radial-gradient(#ffffff 0.5px, transparent 0.5px)', backgroundSize: '24px 24px' }} />
