@@ -21,9 +21,9 @@ const HAND_CONNECTIONS = [
   [5, 9], [9, 13], [13, 17] // Palm
 ];
 
-const SKIN_COLOR = 0xffe0bd; // Warm skin tone
-const JOINT_COLOR = 0xffd1a4; // Slightly darker for joints
-const ACCENT_COLOR = 0xfbbf24; // Amber-400
+const SKIN_COLOR = 0xf5c396; // More realistic skin tone
+const JOINT_COLOR = 0xe8b082; 
+const ACCENT_COLOR = 0x6366f1; // Indigo accent for tech feel
 
 const App: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -42,6 +42,8 @@ const App: React.FC = () => {
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const jointsRef = useRef<THREE.Mesh[]>([]);
   const bonesRef = useRef<THREE.Mesh[]>([]);
+  const palmRef = useRef<THREE.Mesh | null>(null);
+  const handLightRef = useRef<THREE.PointLight | null>(null);
   const smoothedLandmarks = useRef<THREE.Vector3[]>(Array(21).fill(0).map(() => new THREE.Vector3()));
 
   const startApp = async () => {
@@ -87,16 +89,43 @@ const App: React.FC = () => {
           landmarks.forEach((lm: any, i: number) => {
             if (!jointsRef.current[i]) return;
             const joint = jointsRef.current[i];
-            const targetX = (lm.x - 0.5) * 160;
-            const targetY = -(lm.y - 0.5) * 160;
-            const targetZ = -lm.z * 160;
+            
+            // Better coordinate mapping for 1:1 feel
+            // MediaPipe X/Y are 0-1, Z is relative to wrist
+            const targetX = (lm.x - 0.5) * 200;
+            const targetY = -(lm.y - 0.5) * 200;
+            const targetZ = -lm.z * 200; // Match scale for 1:1 imitation
 
             const targetPos = new THREE.Vector3(targetX, targetY, targetZ);
-            smoothedLandmarks.current[i].lerp(targetPos, 0.3);
+            smoothedLandmarks.current[i].lerp(targetPos, 0.5); // Snappier tracking
             
             joint.position.copy(smoothedLandmarks.current[i]);
             joint.visible = true;
           });
+
+          // Update Palm Mesh
+          if (palmRef.current) {
+            const palmIndices = [0, 1, 2, 5, 9, 13, 17];
+            const positions = palmRef.current.geometry.attributes.position;
+            palmIndices.forEach((idx, i) => {
+              const pos = smoothedLandmarks.current[idx];
+              positions.setXYZ(i, pos.x, pos.y, pos.z);
+            });
+            positions.needsUpdate = true;
+            palmRef.current.geometry.computeVertexNormals();
+            palmRef.current.visible = true;
+
+            // Update Hand Light
+            if (handLightRef.current) {
+              const palmCenter = new THREE.Vector3()
+                .add(smoothedLandmarks.current[0])
+                .add(smoothedLandmarks.current[5])
+                .add(smoothedLandmarks.current[17])
+                .divideScalar(3);
+              handLightRef.current.position.copy(palmCenter).add(new THREE.Vector3(0, 0, 20));
+              handLightRef.current.visible = true;
+            }
+          }
 
           // Update Bones
           HAND_CONNECTIONS.forEach((conn, i) => {
@@ -124,6 +153,7 @@ const App: React.FC = () => {
           if (handDetected) setHandDetected(false);
           jointsRef.current.forEach(j => { if (j) j.visible = false; });
           bonesRef.current.forEach(b => { if (b) b.visible = false; });
+          if (palmRef.current) palmRef.current.visible = false;
         }
       });
 
@@ -169,49 +199,47 @@ const App: React.FC = () => {
     rendererRef.current = renderer;
 
     // Lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
     scene.add(ambientLight);
 
-    const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+    scene.add(hemiLight);
+
+    const mainLight = new THREE.DirectionalLight(0xffffff, 1.0);
     mainLight.position.set(50, 100, 50);
     mainLight.castShadow = true;
     mainLight.shadow.mapSize.width = 2048;
     mainLight.shadow.mapSize.height = 2048;
     scene.add(mainLight);
 
-    const rimLight = new THREE.PointLight(0x6366f1, 0.8); // Indigo rim light
+    const handLight = new THREE.PointLight(ACCENT_COLOR, 0.8, 150);
+    scene.add(handLight);
+    handLightRef.current = handLight;
+
+    const rimLight = new THREE.PointLight(0x6366f1, 0.4); // Indigo rim light
     rimLight.position.set(-50, -50, 50);
     scene.add(rimLight);
-
-    const topLight = new THREE.SpotLight(0xffffff, 1);
-    topLight.position.set(0, 150, 0);
-    topLight.angle = Math.PI / 6;
-    topLight.penumbra = 0.3;
-    scene.add(topLight);
 
     // --- Hand Model Creation ---
     const skinMaterial = new THREE.MeshPhysicalMaterial({ 
       color: SKIN_COLOR, 
-      roughness: 0.4, 
+      roughness: 0.6, 
       metalness: 0.0,
-      reflectivity: 0.5,
-      clearcoat: 0.2,
-      clearcoatRoughness: 0.3,
-      sheen: 0.5,
-      sheenRoughness: 0.5,
-      sheenColor: new THREE.Color(0xffffff),
+      reflectivity: 0.2,
+      clearcoat: 0.0,
+      sheen: 0.1,
+      side: THREE.DoubleSide,
     });
 
-    const jointGeometry = new THREE.SphereGeometry(2.2, 24, 24);
-    const boneGeometry = new THREE.CapsuleGeometry(1.8, 1, 12, 12);
-
-    // Clear refs before populating
-    jointsRef.current = [];
-    bonesRef.current = [];
-
-    // Create 21 joints
+    // Create 21 joints with varying sizes for anatomical accuracy
     for (let i = 0; i < 21; i++) {
-      const joint = new THREE.Mesh(jointGeometry, skinMaterial);
+      let size = 1.8;
+      if (i === 0) size = 4.0; // Wrist
+      else if ([1, 2, 5, 9, 13, 17].includes(i)) size = 2.4; // Knuckles/Base
+      else if ([4, 8, 12, 16, 20].includes(i)) size = 1.4; // Tips
+      
+      const jointGeo = new THREE.SphereGeometry(size, 32, 32);
+      const joint = new THREE.Mesh(jointGeo, skinMaterial);
       joint.visible = false;
       joint.castShadow = true;
       joint.receiveShadow = true;
@@ -219,15 +247,40 @@ const App: React.FC = () => {
       jointsRef.current.push(joint);
     }
 
-    // Create bones
-    HAND_CONNECTIONS.forEach(() => {
-      const bone = new THREE.Mesh(boneGeometry, skinMaterial);
+    // Create bones with varying thickness
+    HAND_CONNECTIONS.forEach((conn, idx) => {
+      let thickness = 1.8;
+      if (idx >= 20) thickness = 1.2; // Palm connections
+      else if ([0, 1, 2, 3].includes(idx)) thickness = 2.4; // Thumb is thicker
+      else if ([4, 5, 6, 7].includes(idx)) thickness = 2.0; // Index
+      
+      const boneGeo = new THREE.CapsuleGeometry(thickness, 1, 12, 12);
+      const bone = new THREE.Mesh(boneGeo, skinMaterial);
       bone.visible = false;
       bone.castShadow = true;
       bone.receiveShadow = true;
       scene.add(bone);
       bonesRef.current.push(bone);
     });
+
+    // --- Palm Mesh ---
+    const palmGeo = new THREE.BufferGeometry();
+    // Points: 0(wrist), 1(thumb base), 2(thumb mid), 5(index), 9(middle), 13(ring), 17(pinky)
+    const palmVertices = new Float32Array(7 * 3); 
+    palmGeo.setAttribute('position', new THREE.BufferAttribute(palmVertices, 3));
+    palmGeo.setIndex([
+      0, 1, 3, // Wrist to thumb base to index
+      1, 2, 3, // Thumb base to thumb mid to index
+      0, 3, 4, // Wrist to index to middle
+      0, 4, 5, // Wrist to middle to ring
+      0, 5, 6  // Wrist to ring to pinky
+    ]);
+    const palmMesh = new THREE.Mesh(palmGeo, skinMaterial);
+    palmMesh.visible = false;
+    palmMesh.castShadow = true;
+    palmMesh.receiveShadow = true;
+    scene.add(palmMesh);
+    palmRef.current = palmMesh;
 
     // --- Animation Loop ---
     let animationId: number;
@@ -260,10 +313,6 @@ const App: React.FC = () => {
 
   return (
     <div className="relative w-full h-screen bg-[#0a0a0a] font-sans text-white overflow-hidden">
-      {/* DEBUG MESSAGE */}
-      <div className="absolute top-2 left-2 bg-red-600 text-white text-[10px] px-2 py-1 z-[100] font-mono">
-        SYSTEM_READY: {isStarted ? 'RUNNING' : 'IDLE'}
-      </div>
       {/* Background Texture */}
       <div className="absolute inset-0 opacity-20 pointer-events-none" 
            style={{ backgroundImage: 'radial-gradient(#ffffff 0.5px, transparent 0.5px)', backgroundSize: '24px 24px' }} />
