@@ -1,20 +1,93 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Handy
 
-# Run and deploy your AI Studio app
+A real-time hand-tracking and gesture imitation web application built with TypeScript, React, and Framer Motion. Powered by Google AI Studio and MediaPipe, **Handy** captures hand landmarks via webcam to mirror and animate hand models interactively in the browser.
 
-This contains everything you need to run your app locally.
+---
 
-View your app in AI Studio: https://ai.studio/apps/111abad7-f59b-4c6c-81ad-3a8b3948d90f
+## Features
 
-## Run Locally
+* **Real-time Tracking:** Low-latency hand pose and landmark detection directly in the browser.
+* **Hand Imitation & Rendering:** Custom color schemes and visual canvas refactored for clear gesture visualization.
+* **Fluid Animations:** Smooth motion transitions and UI animations powered by Framer Motion.
+* **Zero Backend Required:** Runs entirely client-side using Vite and modern web APIs.
 
-**Prerequisites:**  Node.js
+---
+
+## Tech Stack
+
+* **Language:** TypeScript
+* **Frontend:** React, Vite, Framer Motion
+* **AI/ML:** Google Gemini API / MediaPipe
+* **Styling:** CSS3 / HTML5
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+* [Node.js](https://nodejs.org/?utm_source=gemini) (v18 or higher recommended)
+* A valid Gemini API key from [Google AI Studio](https://aistudio.google.com/?utm_source=gemini)
+
+### Installation & Setup
+
+1. **Clone the repository**
+```bash
+git clone https://github.com/SumanthChary/handy.git
+cd handy
+
+```
 
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+2. **Install dependencies**
+```bash
+npm install
+
+```
+
+
+3. **Configure environment variables**
+Create a `.env.local` file in the root directory:
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+
+```
+
+
+4. **Start the development server**
+```bash
+npm run dev
+
+```
+
+
+5. Open your browser and navigate to `http://localhost:5173` (or the port indicated in your terminal).
+
+---
+
+## Project Structure
+
+```text
+handy/
+├── src/            # Core source code (components, rendering logic, hooks)
+├── .env.example    # Environment variable reference
+├── index.html      # Application entry point
+├── package.json    # Dependencies and scripts
+├── tsconfig.json   # TypeScript config
+└── vite.config.ts  # Vite build configuration
+
+```
+
+---
+
+## Deployment & Cloud Link
+
+View or remix this app directly on AI Studio:
+
+👉 [Open in Google AI Studio](https://ai.studio/apps/111abad7-f59b-4c6c-81ad-3a8b3948d90f?utm_source=gemini)
+
+---
+
+## License
+
+Distributed under the MIT License. See `LICENSE` for more details.
